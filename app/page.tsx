@@ -2,15 +2,21 @@
 
 import { useEffect, useState } from "react";
 import { Bot, ImageIcon, KeyRound, LibraryBig, Loader2, SendHorizontal, Sparkles } from "lucide-react";
+import type { ApiKeys, Provider } from "@/lib/providers";
 
-type Provider = "openai" | "gemini" | "claude";
 type Message = { id?: string; provider: string; prompt: string; answer: string };
 type Asset = { id?: string; prompt: string; data_url: string };
-type ApiKeys = {
-  openai: string;
-  gemini: string;
-  claude: string;
-};
+
+const providerOptions: Array<{ value: Provider; label: string }> = [
+  { value: "openai", label: "OpenAI" },
+  { value: "gemini", label: "Gemini" },
+  { value: "claude", label: "Claude" },
+  { value: "azure", label: "Azure OpenAI" },
+  { value: "groq", label: "Groq" },
+  { value: "mistral", label: "Mistral" },
+  { value: "cohere", label: "Cohere" },
+  { value: "openrouter", label: "OpenRouter" },
+];
 
 export default function Home() {
   const [tab, setTab] = useState<"chat" | "images" | "library" | "keys">("chat");
@@ -19,26 +25,27 @@ export default function Home() {
   const [answer, setAnswer] = useState("");
   const [imagePrompt, setImagePrompt] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [imageError, setImageError] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [comparison, setComparison] = useState<Array<{ provider: string; answer: string }>>([]);
   const [busy, setBusy] = useState(false);
-  const [apiKeys, setApiKeys] = useState<ApiKeys>({
-    openai: "",
-    gemini: "",
-    claude: "",
-  });
+  const [apiKeys, setApiKeys] = useState<ApiKeys>({});
 
   useEffect(() => {
     const savedKeys = window.localStorage.getItem("igor-ai-studio-api-keys");
     if (savedKeys) {
-      setApiKeys(JSON.parse(savedKeys));
+      try {
+        setApiKeys(JSON.parse(savedKeys));
+      } catch {
+        window.localStorage.removeItem("igor-ai-studio-api-keys");
+      }
     }
     void loadLibrary();
   }, []);
 
-  function updateKey(providerKey: keyof ApiKeys, value: string) {
-    const nextKeys = { ...apiKeys, [providerKey]: value };
+  function updateKey(providerName: keyof ApiKeys, value: string) {
+    const nextKeys = { ...apiKeys, [providerName]: value };
     setApiKeys(nextKeys);
     window.localStorage.setItem("igor-ai-studio-api-keys", JSON.stringify(nextKeys));
   }
@@ -65,13 +72,15 @@ export default function Home() {
 
   async function createImage() {
     setBusy(true);
+    setImageError("");
     const response = await fetch("/api/images", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prompt: imagePrompt, apiKeys }),
+      body: JSON.stringify({ provider, prompt: imagePrompt, apiKeys }),
     });
     const data = await response.json();
     setImageUrl(data.imageUrl ?? "");
+    setImageError(data.error ?? "");
     setBusy(false);
     await loadLibrary();
   }
@@ -108,9 +117,9 @@ export default function Home() {
           <aside>
             <label>Proveedor
               <select value={provider} onChange={(event) => setProvider(event.target.value as Provider)}>
-                <option value="openai">OpenAI</option>
-                <option value="gemini">Gemini</option>
-                <option value="claude">Claude</option>
+                {providerOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
               </select>
             </label>
             <div className="preset-grid">
@@ -128,7 +137,7 @@ export default function Home() {
               Consultar
             </button>
             <button className="secondary" onClick={compareModels} disabled={busy || !prompt}>
-              Comparar 3 modelos
+              Comparar configurados
             </button>
             <article className="answer">{answer || "La respuesta aparecera aqui."}</article>
             {comparison.length > 0 && (
@@ -149,6 +158,11 @@ export default function Home() {
         <section className="image-stage">
           <div className="composer">
             <Sparkles size={18} />
+            <select value={provider} onChange={(event) => setProvider(event.target.value as Provider)}>
+              {providerOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
             <input value={imagePrompt} onChange={(event) => setImagePrompt(event.target.value)} placeholder="Describe la imagen que quieres generar..." />
             <button className="primary" onClick={createImage} disabled={busy || !imagePrompt}>
               {busy ? <Loader2 className="spin" size={18} /> : <ImageIcon size={18} />}
@@ -156,7 +170,7 @@ export default function Home() {
             </button>
           </div>
           <div className="image-frame">
-            {imageUrl ? <img src={imageUrl} alt="Imagen generada" /> : <span>Aqui aparecera la imagen generada.</span>}
+            {imageUrl ? <img src={imageUrl} alt="Imagen generada" /> : <span>{imageError || "Aqui aparecera la imagen generada."}</span>}
           </div>
         </section>
       )}
@@ -190,28 +204,37 @@ export default function Home() {
       {tab === "keys" && (
         <section className="keys-panel">
           <label>OpenAI
-            <input
-              type="password"
-              value={apiKeys.openai}
-              onChange={(event) => updateKey("openai", event.target.value)}
-              placeholder="sk-..."
-            />
+            <input type="password" value={apiKeys.openai ?? ""} onChange={(event) => updateKey("openai", event.target.value)} placeholder="sk-..." />
           </label>
           <label>Gemini
-            <input
-              type="password"
-              value={apiKeys.gemini}
-              onChange={(event) => updateKey("gemini", event.target.value)}
-              placeholder="AIza..."
-            />
+            <input type="password" value={apiKeys.gemini ?? ""} onChange={(event) => updateKey("gemini", event.target.value)} placeholder="AIza..." />
           </label>
           <label>Claude
-            <input
-              type="password"
-              value={apiKeys.claude}
-              onChange={(event) => updateKey("claude", event.target.value)}
-              placeholder="sk-ant-..."
-            />
+            <input type="password" value={apiKeys.claude ?? ""} onChange={(event) => updateKey("claude", event.target.value)} placeholder="sk-ant-..." />
+          </label>
+          <label>Groq
+            <input type="password" value={apiKeys.groq ?? ""} onChange={(event) => updateKey("groq", event.target.value)} placeholder="gsk_..." />
+          </label>
+          <label>Mistral
+            <input type="password" value={apiKeys.mistral ?? ""} onChange={(event) => updateKey("mistral", event.target.value)} placeholder="Mistral API key" />
+          </label>
+          <label>Cohere
+            <input type="password" value={apiKeys.cohere ?? ""} onChange={(event) => updateKey("cohere", event.target.value)} placeholder="Cohere API key" />
+          </label>
+          <label>OpenRouter
+            <input type="password" value={apiKeys.openrouter ?? ""} onChange={(event) => updateKey("openrouter", event.target.value)} placeholder="sk-or-v1-..." />
+          </label>
+          <label>Azure OpenAI clave
+            <input type="password" value={apiKeys.azureKey ?? ""} onChange={(event) => updateKey("azureKey", event.target.value)} placeholder="Clave de Azure OpenAI" />
+          </label>
+          <label>Azure endpoint
+            <input value={apiKeys.azureEndpoint ?? ""} onChange={(event) => updateKey("azureEndpoint", event.target.value)} placeholder="https://tu-recurso.openai.azure.com" />
+          </label>
+          <label>Azure deployment
+            <input value={apiKeys.azureDeployment ?? ""} onChange={(event) => updateKey("azureDeployment", event.target.value)} placeholder="Nombre del deployment" />
+          </label>
+          <label>Azure API version
+            <input value={apiKeys.azureApiVersion ?? ""} onChange={(event) => updateKey("azureApiVersion", event.target.value)} placeholder="2024-10-21" />
           </label>
         </section>
       )}

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { runChat } from "@/lib/providers";
+import { runChat, textProviders } from "@/lib/providers";
 
 const schema = z.object({
   prompt: z.string().min(1),
@@ -9,6 +9,14 @@ const schema = z.object({
       openai: z.string().optional(),
       gemini: z.string().optional(),
       claude: z.string().optional(),
+      groq: z.string().optional(),
+      mistral: z.string().optional(),
+      cohere: z.string().optional(),
+      openrouter: z.string().optional(),
+      azureKey: z.string().optional(),
+      azureEndpoint: z.string().optional(),
+      azureDeployment: z.string().optional(),
+      azureApiVersion: z.string().optional(),
     })
     .optional(),
 });
@@ -16,7 +24,12 @@ const schema = z.object({
 export async function POST(request: Request) {
   try {
     const { prompt, apiKeys } = schema.parse(await request.json());
-    const providers = ["openai", "gemini", "claude"] as const;
+    const providers = textProviders.filter((provider) => {
+      if (provider === "azure") {
+        return Boolean(apiKeys?.azureKey && apiKeys.azureEndpoint && apiKeys.azureDeployment);
+      }
+      return Boolean(apiKeys?.[provider]);
+    });
     const results = await Promise.allSettled(
       providers.map(async (provider) => ({ provider, answer: await runChat(provider, prompt, apiKeys) })),
     );
