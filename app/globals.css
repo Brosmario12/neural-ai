@@ -6,9 +6,9 @@
 
 body {
   margin: 0;
-  background: #eef3f8;
-  color: #152033;
-  font-family: Arial, Helvetica, sans-serif;
+  background: #f4f7fb;
+  color: #162033;
+  font-family: "Segoe UI", Arial, Helvetica, sans-serif;
 }
 
 button,
@@ -64,8 +64,8 @@ textarea {
 }
 
 .topbar nav button[data-active="true"] {
-  border-color: #2563eb;
-  background: #dbeafe;
+  border-color: #0f766e;
+  background: #ccfbf1;
 }
 
 .workspace {
@@ -102,6 +102,7 @@ input {
   border: 1px solid #c8d3df;
   border-radius: 8px;
   padding: 12px;
+  background: #fbfdff;
 }
 
 .preset-grid {
@@ -130,7 +131,7 @@ textarea {
   min-height: 40px;
   border: 0;
   border-radius: 8px;
-  background: #2563eb;
+  background: #0f766e;
   color: #fff;
   padding: 0 14px;
 }
@@ -143,8 +144,9 @@ textarea {
 
 .answer {
   min-height: 260px;
+  border: 1px solid #dbe7f2;
   border-radius: 8px;
-  background: #f7faff;
+  background: linear-gradient(180deg, #ffffff, #f3f8fc);
   padding: 18px;
   line-height: 1.65;
   white-space: pre-wrap;
@@ -188,14 +190,75 @@ textarea {
   padding: 18px;
 }
 
+.security-panel {
+  display: grid;
+  gap: 10px;
+  grid-column: 1 / -1;
+  border: 1px solid #dbe7f2;
+  border-radius: 8px;
+  background: #f8fbfd;
+  padding: 16px;
+}
+
+.security-panel p,
+.security-panel span {
+  margin: 0;
+}
+
+.security-panel span,
+.lock-card span {
+  color: #b42318;
+}
+
+.lock-screen {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+}
+
+.lock-card {
+  display: grid;
+  width: min(420px, 100%);
+  gap: 14px;
+  border: 1px solid #dbe7f2;
+  border-radius: 8px;
+  background: #fff;
+  padding: 24px;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.12);
+}
+
+.lock-card p,
+.lock-card h1 {
+  margin: 0;
+}
+
 .composer {
-  display: flex;
-  align-items: center;
+  display: grid;
+  gap: 14px;
+}
+
+.image-prompt {
   gap: 10px;
 }
 
-.composer input {
-  flex: 1;
+.image-prompt span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.image-prompt textarea {
+  min-height: 132px;
+}
+
+.image-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.image-actions select {
+  max-width: 220px;
 }
 
 .image-frame {
@@ -205,7 +268,7 @@ textarea {
   margin-top: 18px;
   border: 1px solid #d6dee8;
   border-radius: 8px;
-  background: #f7faff;
+  background: linear-gradient(180deg, #ffffff, #eef7fb);
 }
 
 .image-frame img {
@@ -277,6 +340,10 @@ textarea {
   .topbar,
   .composer {
     align-items: stretch;
+    flex-direction: column;
+  }
+
+  .image-actions {
     flex-direction: column;
   }
 

@@ -31,6 +31,10 @@ export default function Home() {
   const [comparison, setComparison] = useState<Array<{ provider: string; answer: string }>>([]);
   const [busy, setBusy] = useState(false);
   const [apiKeys, setApiKeys] = useState<ApiKeys>({});
+  const [lockEnabled, setLockEnabled] = useState(false);
+  const [unlocked, setUnlocked] = useState(true);
+  const [lockInput, setLockInput] = useState("");
+  const [lockError, setLockError] = useState("");
 
   useEffect(() => {
     const savedKeys = window.localStorage.getItem("igor-ai-studio-api-keys");
@@ -41,8 +45,51 @@ export default function Home() {
         window.localStorage.removeItem("igor-ai-studio-api-keys");
       }
     }
+    const savedLock = window.localStorage.getItem("igor-ai-studio-lock");
+    if (savedLock) {
+      setLockEnabled(true);
+      setUnlocked(false);
+    }
     void loadLibrary();
   }, []);
+
+  async function hashPassword(value: string) {
+    const bytes = new TextEncoder().encode(value);
+    const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  async function enableLock() {
+    window.localStorage.setItem("igor-ai-studio-lock", await hashPassword("1234"));
+    setLockEnabled(true);
+    setUnlocked(true);
+    setLockInput("");
+    setLockError("");
+  }
+
+  async function unlock() {
+    const savedLock = window.localStorage.getItem("igor-ai-studio-lock");
+    if (savedLock && (await hashPassword(lockInput)) === savedLock) {
+      setUnlocked(true);
+      setLockInput("");
+      setLockError("");
+      return;
+    }
+    setLockError("Contrasena incorrecta");
+  }
+
+  async function removeLock() {
+    const savedLock = window.localStorage.getItem("igor-ai-studio-lock");
+    if (savedLock && (await hashPassword(lockInput)) === savedLock) {
+      window.localStorage.removeItem("igor-ai-studio-lock");
+      setLockEnabled(false);
+      setUnlocked(true);
+      setLockInput("");
+      setLockError("");
+      return;
+    }
+    setLockError("Contrasena incorrecta");
+  }
 
   function updateKey(providerName: keyof ApiKeys, value: string) {
     const nextKeys = { ...apiKeys, [providerName]: value };
@@ -95,6 +142,20 @@ export default function Home() {
     const data = await response.json();
     setComparison(data.results ?? []);
     setBusy(false);
+  }
+
+  if (lockEnabled && !unlocked) {
+    return (
+      <main className="lock-screen">
+        <section className="lock-card">
+          <p>Igor AI Studio</p>
+          <h1>Acceso protegido</h1>
+          <input type="password" value={lockInput} onChange={(event) => setLockInput(event.target.value)} placeholder="Contrasena" />
+          <button className="primary" onClick={unlock} disabled={!lockInput}>Entrar</button>
+          {lockError && <span>{lockError}</span>}
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -157,17 +218,21 @@ export default function Home() {
       {tab === "images" && (
         <section className="image-stage">
           <div className="composer">
-            <Sparkles size={18} />
-            <select value={provider} onChange={(event) => setProvider(event.target.value as Provider)}>
-              {providerOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <input value={imagePrompt} onChange={(event) => setImagePrompt(event.target.value)} placeholder="Describe la imagen que quieres generar..." />
-            <button className="primary" onClick={createImage} disabled={busy || !imagePrompt}>
-              {busy ? <Loader2 className="spin" size={18} /> : <ImageIcon size={18} />}
-              Generar
-            </button>
+            <label className="image-prompt">
+              <span><Sparkles size={18} />Describe la imagen</span>
+              <textarea value={imagePrompt} onChange={(event) => setImagePrompt(event.target.value)} placeholder="Ejemplo: una ciudad futurista al amanecer, estilo cinematografico, luces calidas, mucho detalle..." />
+            </label>
+            <div className="image-actions">
+              <select value={provider} onChange={(event) => setProvider(event.target.value as Provider)}>
+                {providerOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <button className="primary" onClick={createImage} disabled={busy || !imagePrompt}>
+                {busy ? <Loader2 className="spin" size={18} /> : <ImageIcon size={18} />}
+                Generar imagen
+              </button>
+            </div>
           </div>
           <div className="image-frame">
             {imageUrl ? <img src={imageUrl} alt="Imagen generada" /> : <span>{imageError || "Aqui aparecera la imagen generada."}</span>}
@@ -236,6 +301,19 @@ export default function Home() {
           <label>Azure API version
             <input value={apiKeys.azureApiVersion ?? ""} onChange={(event) => updateKey("azureApiVersion", event.target.value)} placeholder="2024-10-21" />
           </label>
+          <div className="security-panel">
+            <strong>Bloqueo local</strong>
+            <p>{lockEnabled ? "Protegido con contrasena." : "Sin contrasena guardada."}</p>
+            {!lockEnabled ? (
+              <button className="secondary" onClick={enableLock}>Guardar contrasena 1234</button>
+            ) : (
+              <>
+                <input type="password" value={lockInput} onChange={(event) => setLockInput(event.target.value)} placeholder="Escribe la contrasena para quitarla" />
+                <button className="secondary" onClick={removeLock} disabled={!lockInput}>Quitar contrasena</button>
+              </>
+            )}
+            {lockError && <span>{lockError}</span>}
+          </div>
         </section>
       )}
     </main>
