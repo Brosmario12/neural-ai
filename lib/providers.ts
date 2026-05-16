@@ -9,6 +9,7 @@ export type ApiKeys = Partial<Record<Exclude<Provider, "azure">, string>> & {
 
 export const textProviders: Provider[] = ["openai", "gemini", "claude", "azure", "groq", "mistral", "cohere", "openrouter"];
 export const imageProviders: Provider[] = ["openai", "gemini"];
+const claudeModels = ["claude-sonnet-4-0", "claude-sonnet-4-20250514", "claude-3-7-sonnet-latest"] as const;
 
 function getKey(provider: Exclude<Provider, "azure">, apiKeys?: ApiKeys) {
   const directKey = apiKeys?.[provider]?.trim();
@@ -27,6 +28,46 @@ function readOpenAiCompatibleAnswer(json: { choices?: Array<{ message?: { conten
   return json.choices?.[0]?.message?.content;
 }
 
+function readClaudeText(json: { content?: Array<{ type?: string; text?: string }> }) {
+  return json.content?.find((part) => part.type === "text")?.text;
+}
+
+function isClaudeModelError(json: { error?: { type?: string; message?: string } }) {
+  const message = json.error?.message?.toLowerCase() ?? "";
+  return json.error?.type === "not_found_error" || message.includes("model") || message.includes("not found");
+}
+
+async function runClaudeChat(prompt: string, key: string) {
+  const failures: string[] = [];
+
+  for (const model of claudeModels) {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1200,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    const json = await response.json();
+    const text = readClaudeText(json);
+    if (response.ok && text) return text;
+
+    const errorMessage = json.error?.message ?? `Claude devolvio ${response.status}`;
+    failures.push(`${model}: ${errorMessage}`);
+    if (!isClaudeModelError(json)) {
+      throw new Error(`Claude Console/API rechazo la solicitud: ${errorMessage}`);
+    }
+  }
+
+  throw new Error(`Claude no respondio con los modelos probados. ${failures.join(" | ")}`);
+}
+
 export async function runChat(provider: Provider, prompt: string, apiKeys?: ApiKeys) {
   if (provider === "gemini") {
     const key = getKey(provider, apiKeys);
@@ -43,21 +84,10 @@ export async function runChat(provider: Provider, prompt: string, apiKeys?: ApiK
   if (provider === "claude") {
     const key = getKey(provider, apiKeys);
     if (!key) throw new Error("Falta ANTHROPIC_API_KEY");
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1200,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-    const json = await response.json();
-    return json.content?.[0]?.text ?? json.error?.message ?? JSON.stringify(json);
+    if (!key.startsWith("sk-ant-")) {
+      throw new Error("La clave de Claude debe ser una API key de Claude Console y normalmente empieza con sk-ant-");
+    }
+    return runClaudeChat(prompt, key);
   }
 
   if (provider === "azure") {

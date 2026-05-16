@@ -274,7 +274,7 @@ export default function Home() {
           <label>Gemini
             <input type="password" value={apiKeys.gemini ?? ""} onChange={(event) => updateKey("gemini", event.target.value)} placeholder="AIza..." />
           </label>
-          <label>Claude
+          <label>Claude Console / API
             <input type="password" value={apiKeys.claude ?? ""} onChange={(event) => updateKey("claude", event.target.value)} placeholder="sk-ant-..." />
           </label>
           <label>Groq
