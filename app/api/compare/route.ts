@@ -2,14 +2,23 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { runChat } from "@/lib/providers";
 
-const schema = z.object({ prompt: z.string().min(1) });
+const schema = z.object({
+  prompt: z.string().min(1),
+  apiKeys: z
+    .object({
+      openai: z.string().optional(),
+      gemini: z.string().optional(),
+      claude: z.string().optional(),
+    })
+    .optional(),
+});
 
 export async function POST(request: Request) {
   try {
-    const { prompt } = schema.parse(await request.json());
+    const { prompt, apiKeys } = schema.parse(await request.json());
     const providers = ["openai", "gemini", "claude"] as const;
     const results = await Promise.allSettled(
-      providers.map(async (provider) => ({ provider, answer: await runChat(provider, prompt) })),
+      providers.map(async (provider) => ({ provider, answer: await runChat(provider, prompt, apiKeys) })),
     );
 
     return NextResponse.json({

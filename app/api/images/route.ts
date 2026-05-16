@@ -3,12 +3,19 @@ import { z } from "zod";
 import { generateImage } from "@/lib/providers";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
-const schema = z.object({ prompt: z.string().min(1) });
+const schema = z.object({
+  prompt: z.string().min(1),
+  apiKeys: z
+    .object({
+      openai: z.string().optional(),
+    })
+    .optional(),
+});
 
 export async function POST(request: Request) {
   try {
-    const { prompt } = schema.parse(await request.json());
-    const imageUrl = await generateImage(prompt);
+    const { prompt, apiKeys } = schema.parse(await request.json());
+    const imageUrl = await generateImage(prompt, apiKeys?.openai);
     const supabase = getSupabaseAdmin();
 
     if (supabase) {
@@ -24,4 +31,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Error desconocido" }, { status: 400 });
   }
 }
-

@@ -1,14 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bot, ImageIcon, LibraryBig, Loader2, SendHorizontal, Sparkles } from "lucide-react";
+import { Bot, ImageIcon, KeyRound, LibraryBig, Loader2, SendHorizontal, Sparkles } from "lucide-react";
 
 type Provider = "openai" | "gemini" | "claude";
 type Message = { id?: string; provider: string; prompt: string; answer: string };
 type Asset = { id?: string; prompt: string; data_url: string };
+type ApiKeys = {
+  openai: string;
+  gemini: string;
+  claude: string;
+};
 
 export default function Home() {
-  const [tab, setTab] = useState<"chat" | "images" | "library">("chat");
+  const [tab, setTab] = useState<"chat" | "images" | "library" | "keys">("chat");
   const [provider, setProvider] = useState<Provider>("openai");
   const [prompt, setPrompt] = useState("");
   const [answer, setAnswer] = useState("");
@@ -18,10 +23,25 @@ export default function Home() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [comparison, setComparison] = useState<Array<{ provider: string; answer: string }>>([]);
   const [busy, setBusy] = useState(false);
+  const [apiKeys, setApiKeys] = useState<ApiKeys>({
+    openai: "",
+    gemini: "",
+    claude: "",
+  });
 
   useEffect(() => {
+    const savedKeys = window.localStorage.getItem("igor-ai-studio-api-keys");
+    if (savedKeys) {
+      setApiKeys(JSON.parse(savedKeys));
+    }
     void loadLibrary();
   }, []);
+
+  function updateKey(providerKey: keyof ApiKeys, value: string) {
+    const nextKeys = { ...apiKeys, [providerKey]: value };
+    setApiKeys(nextKeys);
+    window.localStorage.setItem("igor-ai-studio-api-keys", JSON.stringify(nextKeys));
+  }
 
   async function loadLibrary() {
     const response = await fetch("/api/library");
@@ -35,7 +55,7 @@ export default function Home() {
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ provider, prompt }),
+      body: JSON.stringify({ provider, prompt, apiKeys }),
     });
     const data = await response.json();
     setAnswer(data.answer ?? data.error);
@@ -48,7 +68,7 @@ export default function Home() {
     const response = await fetch("/api/images", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prompt: imagePrompt }),
+      body: JSON.stringify({ prompt: imagePrompt, apiKeys }),
     });
     const data = await response.json();
     setImageUrl(data.imageUrl ?? "");
@@ -61,7 +81,7 @@ export default function Home() {
     const response = await fetch("/api/compare", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ prompt, apiKeys }),
     });
     const data = await response.json();
     setComparison(data.results ?? []);
@@ -79,6 +99,7 @@ export default function Home() {
           <button onClick={() => setTab("chat")} data-active={tab === "chat"}><Bot size={18} />Chat</button>
           <button onClick={() => setTab("images")} data-active={tab === "images"}><ImageIcon size={18} />Imagenes</button>
           <button onClick={() => setTab("library")} data-active={tab === "library"}><LibraryBig size={18} />Biblioteca</button>
+          <button onClick={() => setTab("keys")} data-active={tab === "keys"}><KeyRound size={18} />Claves</button>
         </nav>
       </header>
 
@@ -163,6 +184,35 @@ export default function Home() {
               ))}
             </div>
           </div>
+        </section>
+      )}
+
+      {tab === "keys" && (
+        <section className="keys-panel">
+          <label>OpenAI
+            <input
+              type="password"
+              value={apiKeys.openai}
+              onChange={(event) => updateKey("openai", event.target.value)}
+              placeholder="sk-..."
+            />
+          </label>
+          <label>Gemini
+            <input
+              type="password"
+              value={apiKeys.gemini}
+              onChange={(event) => updateKey("gemini", event.target.value)}
+              placeholder="AIza..."
+            />
+          </label>
+          <label>Claude
+            <input
+              type="password"
+              value={apiKeys.claude}
+              onChange={(event) => updateKey("claude", event.target.value)}
+              placeholder="sk-ant-..."
+            />
+          </label>
         </section>
       )}
     </main>

@@ -1,8 +1,10 @@
 export type Provider = "openai" | "gemini" | "claude";
 
-export async function runChat(provider: Provider, prompt: string) {
+type ProviderKeys = Partial<Record<Provider, string>>;
+
+export async function runChat(provider: Provider, prompt: string, keys: ProviderKeys = {}) {
   if (provider === "gemini") {
-    const key = process.env.GEMINI_API_KEY;
+    const key = keys.gemini || process.env.GEMINI_API_KEY;
     if (!key) throw new Error("Falta GEMINI_API_KEY");
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
       method: "POST",
@@ -14,7 +16,7 @@ export async function runChat(provider: Provider, prompt: string) {
   }
 
   if (provider === "claude") {
-    const key = process.env.ANTHROPIC_API_KEY;
+    const key = keys.claude || process.env.ANTHROPIC_API_KEY;
     if (!key) throw new Error("Falta ANTHROPIC_API_KEY");
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -33,7 +35,7 @@ export async function runChat(provider: Provider, prompt: string) {
     return json.content?.[0]?.text ?? JSON.stringify(json);
   }
 
-  const key = process.env.OPENAI_API_KEY;
+  const key = keys.openai || process.env.OPENAI_API_KEY;
   if (!key) throw new Error("Falta OPENAI_API_KEY");
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -50,8 +52,8 @@ export async function runChat(provider: Provider, prompt: string) {
   return json.output_text ?? JSON.stringify(json);
 }
 
-export async function generateImage(prompt: string) {
-  const key = process.env.OPENAI_API_KEY;
+export async function generateImage(prompt: string, openaiKey?: string) {
+  const key = openaiKey || process.env.OPENAI_API_KEY;
   if (!key) throw new Error("Falta OPENAI_API_KEY");
   const response = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
@@ -73,4 +75,3 @@ export async function generateImage(prompt: string) {
   }
   return `data:image/png;base64,${base64}`;
 }
-
