@@ -37,35 +37,73 @@ function isClaudeModelError(json: { error?: { type?: string; message?: string } 
   return json.error?.type === "not_found_error" || message.includes("model") || message.includes("not found");
 }
 
-async function runClaudeChat(prompt: string, key: string) {
-  const failures: string[] = [];
+async function listClaudeModels(key: string) {
+  const response = await fetch("https://api.anthropic.com/v1/models", {
+    method: "GET",
+    headers: {
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+    },
+  });
 
-  for (const model of claudeModels) {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1200,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-    const json = await response.json();
-    const text = readClaudeText(json);
-    if (response.ok && text) return text;
-
-    const errorMessage = json.error?.message ?? `Claude devolvio ${response.status}`;
-    failures.push(`${model}: ${errorMessage}`);
-    if (!isClaudeModelError(json)) {
-      throw new Error(`Claude Console/API rechazo la solicitud: ${errorMessage}`);
-    }
+  const json = await response.json();
+  if (!response.ok) {
+    const errorMessage = json.error?.message ?? `Anthropic devolvio ${response.status} al listar modelos`;
+    throw new Error(`Claude Console/API no pudo listar modelos: ${errorMessage}`);
   }
 
-  throw new Error(`Claude no respondio con los modelos probados. ${failures.join(" | ")}`);
+  return Array.isArray(json.data) ? json.data : [];
+}
+
+function pickClaudeModel(models: Array<{ id?: string; display_name?: string }>) {
+  const availableIds = new Set(models.map((model) => model.id).filter((value): value is string => Boolean(value)));
+
+  for (const candidate of claudeModels) {
+    if (availableIds.has(candidate)) return candidate;
+  }
+
+  const sonnetCandidate = models.find((model) => model.id?.includes("sonnet"));
+  if (sonnetCandidate?.id) return sonnetCandidate.id;
+
+  const firstClaude = models.find((model) => model.id?.startsWith("claude-"));
+  return firstClaude?.id;
+}
+
+async function runClaudeChat(prompt: string, key: string) {
+  const models = await listClaudeModels(key);
+  const model = pickClaudeModel(models);
+
+  if (!model) {
+    const visibleModels = models
+      .map((item: { id?: string }) => item.id)
+      .filter((value: string | undefined): value is string => Boolean(value))
+      .slice(0, 8);
+    throw new Error(`Claude Console/API no reporto un modelo compatible. Disponibles: ${visibleModels.join(", ") || "ninguno"}`);
+  }
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1200,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  const json = await response.json();
+  const text = readClaudeText(json);
+  if (response.ok && text) return text;
+
+  const errorMessage = json.error?.message ?? `Claude devolvio ${response.status}`;
+  if (!isClaudeModelError(json)) {
+    throw new Error(`Claude Console/API rechazo la solicitud: ${errorMessage}`);
+  }
+
+  throw new Error(`Claude rechazo el modelo resuelto (${model}): ${errorMessage}`);
 }
 
 export async function runChat(provider: Provider, prompt: string, apiKeys?: ApiKeys) {
