@@ -2,8 +2,19 @@ import { NextResponse } from 'next/server'
 
 export async function GET() {
   const publicKey = process.env.WOMPI_PUBLIC_KEY
+  const demoMode = process.env.WOMPI_DEMO_MODE === 'true'
 
   if (!publicKey) {
+    if (demoMode) {
+      return NextResponse.json({
+        acceptanceToken: 'demo_acceptance_token',
+        acceptancePermalink: 'https://wompi.co/es/co/terminos-condiciones',
+        personalDataToken: 'demo_personal_data_token',
+        personalDataPermalink: 'https://wompi.co/es/co/autorizacion-datos-personales',
+        mode: 'demo',
+      })
+    }
+
     return NextResponse.json(
       { error: 'Missing WOMPI_PUBLIC_KEY in the application environment.' },
       { status: 500 },

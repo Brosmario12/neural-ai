@@ -4,6 +4,7 @@ import {
   createSupabaseAdmin,
   getAuthenticatedUser,
   getOrCreateWallet,
+  isDemoMode,
   normalizePayoutStatus,
   wompiPayoutsFetch,
 } from '../_shared/wompi.ts'
@@ -99,6 +100,35 @@ serve(async (req) => {
 
     if (txError || !tx) {
       throw new Error('No se pudo crear la transaccion local.')
+    }
+
+    if (isDemoMode()) {
+      await supabase
+        .from('transactions')
+        .update({
+          payout_id: `demo_payout_${tx.id}`,
+          wompi_id: `demo_transfer_${tx.id}`,
+          status: 'approved',
+          metadata: {
+            mode: 'demo',
+            provider: 'WOMPI_PAYOUTS_SIMULATED',
+            approved_at: new Date().toISOString(),
+            destination_phone: nequiPhone,
+          },
+        })
+        .eq('id', tx.id)
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          tx_id: tx.id,
+          payout_id: `demo_payout_${tx.id}`,
+          message: 'Retiro simulado aprobado. El saldo se desconto automaticamente en modo demo.',
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      )
     }
 
     const payoutResponse = await wompiPayoutsFetch('/payouts', {

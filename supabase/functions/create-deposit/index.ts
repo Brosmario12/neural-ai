@@ -5,6 +5,7 @@ import {
   generateIntegritySignature,
   getAuthenticatedUser,
   getOrCreateWallet,
+  isDemoMode,
   normalizeMoneyStatus,
   wompiMoneyFetch,
 } from '../_shared/wompi.ts'
@@ -63,6 +64,34 @@ serve(async (req) => {
 
     if (txError || !tx) {
       throw new Error('No se pudo crear la transaccion local.')
+    }
+
+    if (isDemoMode()) {
+      await supabase
+        .from('transactions')
+        .update({
+          wompi_id: `demo_tx_${tx.id}`,
+          reference: tx.id,
+          status: 'approved',
+          metadata: {
+            mode: 'demo',
+            provider: 'WOMPI_SIMULATED',
+            approved_at: new Date().toISOString(),
+          },
+        })
+        .eq('id', tx.id)
+
+      return new Response(
+        JSON.stringify({
+          tx_id: tx.id,
+          wompi_id: `demo_tx_${tx.id}`,
+          status: 'APPROVED',
+          message: 'Deposito simulado aprobado. El saldo se acredito automaticamente en modo demo.',
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      )
     }
 
     const signature = generateIntegritySignature(tx.id, amountCents, 'COP')
