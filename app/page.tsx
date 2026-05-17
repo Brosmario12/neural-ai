@@ -20,7 +20,7 @@ const providerOptions: Array<{ value: Provider; label: string }> = [
 
 export default function Home() {
   const [tab, setTab] = useState<"chat" | "images" | "library" | "keys">("chat");
-  const [provider, setProvider] = useState<Provider>("openai");
+  const [provider, setProvider] = useState<Provider>("claude");
   const [prompt, setPrompt] = useState("");
   const [answer, setAnswer] = useState("");
   const [imagePrompt, setImagePrompt] = useState("");

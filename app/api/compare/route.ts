@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { runChat, textProviders } from "@/lib/providers";
+import { hasConfiguredProvider, runChat, textProviders } from "@/lib/providers";
 
 const schema = z.object({
   prompt: z.string().min(1),
@@ -24,12 +24,7 @@ const schema = z.object({
 export async function POST(request: Request) {
   try {
     const { prompt, apiKeys } = schema.parse(await request.json());
-    const providers = textProviders.filter((provider) => {
-      if (provider === "azure") {
-        return Boolean(apiKeys?.azureKey && apiKeys.azureEndpoint && apiKeys.azureDeployment);
-      }
-      return Boolean(apiKeys?.[provider]);
-    });
+    const providers = textProviders.filter((provider) => hasConfiguredProvider(provider, apiKeys));
     const results = await Promise.allSettled(
       providers.map(async (provider) => ({ provider, answer: await runChat(provider, prompt, apiKeys) })),
     );

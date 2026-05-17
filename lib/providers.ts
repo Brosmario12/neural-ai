@@ -9,7 +9,7 @@ export type ApiKeys = Partial<Record<Exclude<Provider, "azure">, string>> & {
 
 export const textProviders: Provider[] = ["openai", "gemini", "claude", "azure", "groq", "mistral", "cohere", "openrouter"];
 export const imageProviders: Provider[] = ["openai", "gemini"];
-const claudeModels = ["claude-sonnet-4-0", "claude-sonnet-4-20250514", "claude-3-7-sonnet-latest"] as const;
+const claudeModels = ["claude-haiku-4-5-20251001", "claude-3-5-haiku-latest", "claude-sonnet-4-20250514"] as const;
 
 function getKey(provider: Exclude<Provider, "azure">, apiKeys?: ApiKeys) {
   const directKey = apiKeys?.[provider]?.trim();
@@ -22,6 +22,19 @@ function getKey(provider: Exclude<Provider, "azure">, apiKeys?: ApiKeys) {
   if (provider === "mistral") return process.env.MISTRAL_API_KEY;
   if (provider === "cohere") return process.env.COHERE_API_KEY;
   return process.env.OPENROUTER_API_KEY;
+}
+
+export function hasConfiguredProvider(provider: Provider, apiKeys?: ApiKeys) {
+  if (provider === "azure") {
+    return Boolean(
+      apiKeys?.azureKey?.trim() ||
+        process.env.AZURE_OPENAI_API_KEY ||
+        (apiKeys?.azureEndpoint?.trim() || process.env.AZURE_OPENAI_ENDPOINT) &&
+          (apiKeys?.azureDeployment?.trim() || process.env.AZURE_OPENAI_DEPLOYMENT),
+    );
+  }
+
+  return Boolean(getKey(provider, apiKeys));
 }
 
 function readOpenAiCompatibleAnswer(json: { choices?: Array<{ message?: { content?: string } }> }) {
@@ -70,6 +83,46 @@ function pickClaudeModel(models: Array<{ id?: string; display_name?: string }>) 
 }
 
 async function runClaudeChat(prompt: string, key: string) {
+  const tryModel = async (model: string) => {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 300,
+        messages: [{ role: "user", content: prompt.slice(0, 2500) }],
+      }),
+    });
+    const json = await response.json();
+    const text = readClaudeText(json);
+
+    if (response.ok && text) {
+      return { ok: true as const, text };
+    }
+
+    return {
+      ok: false as const,
+      status: response.status,
+      json,
+      errorMessage: json.error?.message ?? `Claude devolvio ${response.status}`,
+    };
+  };
+
+  const preferredModel = claudeModels[0];
+  const firstAttempt = await tryModel(preferredModel);
+  if (firstAttempt.ok) return firstAttempt.text;
+  if (firstAttempt.status === 429) {
+    throw new Error("Claude/Haiku esta saturado temporalmente por limite de uso. Intenta de nuevo en 1 o 2 minutos o usa otro proveedor.");
+  }
+
+  if (!isClaudeModelError(firstAttempt.json)) {
+    throw new Error(`Claude Console/API rechazo la solicitud: ${firstAttempt.errorMessage}`);
+  }
+
   const models = await listClaudeModels(key);
   const model = pickClaudeModel(models);
 
@@ -81,29 +134,12 @@ async function runClaudeChat(prompt: string, key: string) {
     throw new Error(`Claude Console/API no reporto un modelo compatible. Disponibles: ${visibleModels.join(", ") || "ninguno"}`);
   }
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 1200,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
-  const json = await response.json();
-  const text = readClaudeText(json);
-  if (response.ok && text) return text;
-
-  const errorMessage = json.error?.message ?? `Claude devolvio ${response.status}`;
-  if (!isClaudeModelError(json)) {
-    throw new Error(`Claude Console/API rechazo la solicitud: ${errorMessage}`);
+  const fallbackAttempt = await tryModel(model);
+  if (fallbackAttempt.ok) return fallbackAttempt.text;
+  if (fallbackAttempt.status === 429) {
+    throw new Error("Claude/Haiku esta saturado temporalmente por limite de uso. Intenta de nuevo en 1 o 2 minutos o usa otro proveedor.");
   }
-
-  throw new Error(`Claude rechazo el modelo resuelto (${model}): ${errorMessage}`);
+  throw new Error(`Claude rechazo el modelo resuelto (${model}): ${fallbackAttempt.errorMessage}`);
 }
 
 export async function runChat(provider: Provider, prompt: string, apiKeys?: ApiKeys) {
