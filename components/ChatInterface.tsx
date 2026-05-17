@@ -8,7 +8,12 @@ import { Brain } from 'lucide-react'
 
 const generateId = () => Math.random().toString(36).substring(2, 11) + Date.now().toString(36)
 
-export default function ChatInterface({ userId }: ChatInterfaceProps) {
+interface ChatInterfaceProps {
+  userId?: string
+}
+
+export default function ChatInterface({ userId: _userId }: ChatInterfaceProps) {
+  void _userId
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [sessionId] = useState(generateId())

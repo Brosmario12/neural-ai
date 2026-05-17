@@ -1,5 +1,5 @@
-import ProtectedChat from '@/components/ProtectedChat'
+import { redirect } from 'next/navigation'
 
 export default function Home() {
-  return <ProtectedChat />
+  redirect('/dashboard')
 }

@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import ChatInterface from './ChatInterface'
 import { LogOut } from 'lucide-react'
+import type { User } from '@supabase/supabase-js'
 
 export default function ProtectedChat() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 

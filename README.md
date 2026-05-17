@@ -1,104 +1,86 @@
-# Neural AI - Intelligent Conversational Assistant
+# Nequi Wallet Ops
 
-A modern, clean AI chat application built with Next.js, Claude AI, and Supabase.
+Wallet app con Next.js, Supabase, Wompi Online Payments y Wompi Payouts para automatizar:
 
-## Features
+- Depositos por Nequi via `POST /v1/transactions`
+- Retiros a Nequi via `POST https://api.payouts.wompi.co/v1/payouts`
+- Confirmaciones asincronas via webhook firmado
+- Saldos con ledger en Postgres y RLS de solo lectura para el usuario final
 
-- 🧠 Intelligent conversation powered by Claude 3.5 Sonnet
-- 💾 Persistent chat history with Supabase
-- 🎨 Modern, responsive UI with Tailwind CSS
-- ⚡ Real-time message streaming
-- 🔐 Secure API integration
+## Flujo
 
-## Tech Stack
+1. El usuario se autentica con Supabase Auth.
+2. En `/deposit` autoriza terminos de Wompi y solicita el cobro Nequi.
+3. Wompi envia el push a Nequi y luego notifica `transaction.updated`.
+4. El webhook marca la transaccion y el trigger acredita saldo si termina en `approved`.
+5. En `/withdraw` el usuario crea un payout a Nequi.
+6. El retiro queda reservado mientras Payouts procesa el lote.
+7. El webhook de Payouts actualiza el estado final y el trigger debita saldo al aprobarse.
 
-- **Frontend**: Next.js 15, React 19, Tailwind CSS
-- **Backend**: Next.js API Routes
-- **AI**: Anthropic Claude API
-- **Database**: Supabase PostgreSQL
-- **Deployment**: Vercel
+## Variables
 
-## Prerequisites
-
-- Node.js 18+
-- npm or yarn
-- Accounts for:
-  - Supabase
-  - Anthropic (Claude API)
-  - Vercel (for deployment)
-
-## Setup
-
-### 1. Clone and Install
+En `.env.local` o en tu plataforma de despliegue:
 
 ```bash
-cd neural-ai
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+WOMPI_PUBLIC_KEY=
+WOMPI_PRIVATE_KEY=
+WOMPI_INTEGRITY_SECRET=
+WOMPI_EVENTS_SECRET=
+WOMPI_PAYOUTS_API_KEY=
+WOMPI_PAYOUTS_USER_PRINCIPAL_ID=
+WOMPI_PAYOUTS_EVENTS_SECRET=
+WOMPI_PAYOUTS_SOURCE_ACCOUNT_ID=
+```
+
+En Supabase Edge Functions debes registrar tambien:
+
+```bash
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+WOMPI_PRIVATE_KEY=
+WOMPI_INTEGRITY_SECRET=
+WOMPI_EVENTS_SECRET=
+WOMPI_PAYOUTS_API_KEY=
+WOMPI_PAYOUTS_USER_PRINCIPAL_ID=
+WOMPI_PAYOUTS_EVENTS_SECRET=
+WOMPI_PAYOUTS_SOURCE_ACCOUNT_ID=
+```
+
+## Base de datos
+
+Ejecuta estas migraciones:
+
+- `supabase/migrations/001_create_tables.sql`
+- `supabase/migrations/002_wallet_wompi.sql`
+
+La segunda agrega:
+
+- `wallets`
+- `transactions`
+- trigger de wallet por usuario nuevo
+- trigger contable para acreditar/debitar saldo
+- RLS para que el usuario solo lea su wallet y sus movimientos
+
+## Edge Functions
+
+Se dejaron listas estas functions:
+
+- `create-deposit`
+- `create-withdrawal`
+- `wompi-webhook`
+
+## Desarrollo
+
+```bash
 npm install
-```
-
-### 2. Environment Variables
-
-Create `.env.local`:
-
-```
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_KEY=your_supabase_service_key
-ANTHROPIC_API_KEY=your_anthropic_api_key
-```
-
-### 3. Database Setup
-
-1. Go to Supabase dashboard
-2. Create a new database
-3. Run the migration SQL from `supabase/migrations/001_create_tables.sql`
-
-### 4. Run Development
-
-```bash
 npm run dev
 ```
 
-Open http://localhost:3000
+## Notas operativas
 
-## Project Structure
-
-```
-neural-ai/
-├── app/
-│   ├── api/chat/route.ts        # Chat API endpoint
-│   ├── page.tsx                 # Main page
-│   ├── layout.tsx               # Root layout
-│   └── globals.css              # Global styles
-├── components/
-│   ├── ChatInterface.tsx        # Main chat component
-│   ├── MessageList.tsx          # Message display
-│   └── InputBar.tsx             # Message input
-├── lib/
-│   ├── types.ts                 # TypeScript types
-│   └── supabase.ts              # Supabase client
-└── supabase/
-    └── migrations/              # Database migrations
-```
-
-## Next Steps
-
-- [ ] Add message persistence to Supabase
-- [ ] Implement chat sessions management
-- [ ] Add user authentication
-- [ ] Enable real-time message streaming
-- [ ] Add export chat as PDF
-- [ ] Deploy to Vercel
-
-## Deployment
-
-```bash
-npm run build
-npm start
-```
-
-For Vercel:
-1. Push to GitHub
-2. Connect to Vercel
-3. Set environment variables
-4. Deploy
+- Los depositos usan Nequi directo y requieren aceptacion explicita de contratos Wompi.
+- Los retiros usan Payouts y por documentacion actual necesitan nombre, documento y celular.
+- `bankId` de Nequi se envio como `1507`, de acuerdo con la tabla de bancos publicada por Wompi.
+- Para evitar doble retiro, el sistema descuenta retiros `pending` o `processing` del saldo disponible antes de crear uno nuevo.

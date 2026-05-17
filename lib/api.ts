@@ -1,4 +1,6 @@
-export async function sendMessage(message: string, sessionId: string, history: any[]) {
+import type { Message } from './types'
+
+export async function sendMessage(message: string, sessionId: string, history: Message[]) {
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',

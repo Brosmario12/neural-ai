@@ -48,12 +48,12 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       <div className="w-full max-w-md">
         <div className="bg-slate-800 border border-slate-700 rounded-lg p-8 space-y-6">
           <div className="flex items-center justify-center gap-3">
-            <div className="p-2 bg-blue-600/20 rounded-lg">
-              <LogIn className="w-6 h-6 text-blue-400" />
+            <div className="p-2 bg-cyan-500/15 rounded-lg">
+              <LogIn className="w-6 h-6 text-cyan-300" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">Neural AI</h1>
-              <p className="text-xs text-slate-400">Intelligent Assistant</p>
+              <h1 className="text-2xl font-bold text-white">Nequi Wallet Ops</h1>
+              <p className="text-xs text-slate-400">Depositos y retiros automatizados</p>
             </div>
           </div>
 
@@ -66,7 +66,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
                 disabled={loading}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 disabled:opacity-50"
                 required
               />
             </div>
@@ -79,7 +79,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 disabled={loading}
-                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 disabled:opacity-50"
                 required
               />
             </div>
@@ -93,7 +93,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 text-white rounded-lg px-4 py-2 font-medium transition-colors disabled:cursor-not-allowed"
+              className="w-full bg-cyan-400 hover:bg-cyan-300 disabled:bg-slate-700 text-slate-950 rounded-lg px-4 py-2 font-medium transition-colors disabled:cursor-not-allowed"
             >
               {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
             </button>
