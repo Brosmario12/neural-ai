@@ -1,0 +1,9 @@
+{
+  "buildCommand": "npm run build",
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "@neural_ai_supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@neural_ai_supabase_anon_key",
+    "SUPABASE_SERVICE_KEY": "@neural_ai_supabase_service_key",
+    "ANTHROPIC_API_KEY": "@neural_ai_anthropic_api_key"
+  }
+}
